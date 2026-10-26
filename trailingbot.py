@@ -4,13 +4,11 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import ccxt
 
-# Servidor web fantasma para Render (Plan Gratuito)
 class DummyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot activo.")
-        
     def log_message(self, format, *args):
         return
 
@@ -19,10 +17,8 @@ def run_web_server():
     server = HTTPServer(('0.0.0.0', port), DummyHandler)
     server.serve_forever()
 
-# Iniciar servidor web en segundo plano
 threading.Thread(target=run_web_server, daemon=True).start()
 
-# Configuración
 SYMBOL = 'XRP/USDT:USDT'
 ACTIVATION_DIST_PCT = 1.0
 CALLBACK_RATE_PCT = 0.5
