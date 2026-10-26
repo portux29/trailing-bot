@@ -20,8 +20,8 @@ def run_web_server():
 threading.Thread(target=run_web_server, daemon=True).start()
 
 SYMBOL = 'XRP/USDT:USDT'
-ACTIVATION_DIST_PCT = 1.0
-CALLBACK_RATE_PCT = 0.5
+ACTIVATION_DIST_PCT = 1.80
+CALLBACK_RATE_PCT = 0.50
 
 exchange = ccxt.binance({
     'apiKey': os.environ.get('BINANCE_API_KEY', 'TU_API_KEY'),
