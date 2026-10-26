@@ -1,30 +1,49 @@
+import os
 import time
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import ccxt
 
-# ==========================================
-# CONFIGURACIÓN DE TUS PARÁMETROS
-# ==========================================
-API_KEY = 'APUo3mk2TkVESX0dJ3YwKTIHMr87ItzHprV6YIJPIG1KBjelReLWS9VErArFD6sc'
-SECRET_KEY = 'dLwxyjsZK3eWPgk7iWLBeL7MgYTZtROgwGaehbOh5FtqvzqxvZUj0Bac7wzabHnx'
+# --- Mini servidor web fantasma para cumplir con el requisito de puertos de Render (Gratis) ---
+class DummyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot de Trailing Stop activo y funcionando.")
+        
+    def log_message(self, format, *args):
+        return
 
-SYMBOL = 'BTC/USDT' # 1. La moneda / par que estás operando
-ACTIVATION_DIST_PCT = 2.35 # 2. Distancia de activación en % a favor desde tu precio promedio
-CALLBACK_RATE_PCT = 0.50 # 3. Tasa de callback en % para proteger las ganancias
+def run_web_server():
+    port = int(os.environ.get('PORT', 10000))
+    server = HTTPServer(('0.0.0.0', port), DummyHandler)
+    print(f"[*] Servidor HTTP fantasma iniciado en el puerto {port}")
+    server.serve_forever()
 
-# Inicializar cliente de Binance Futures
+# Arrancamos el servidor web en segundo plano (hilo independiente)
+web_thread = threading.Thread(target=run_web_server, daemon=True)
+web_thread.start()
+
+# --- Configuración del Bot ---
+SYMBOL = 'XRP/USDT:USDT' # Cambia aquí tu par si usas otro (ej: BTC/USDT:USDT)
+ACTIVATION_DIST_PCT = 1.0 # Distancia de activación (%)
+CALLBACK_RATE_PCT = 0.5 # Callback (%)
+
+# Inicializar conexión con Binance Futures
 exchange = ccxt.binance({
-    'apiKey': API_KEY,
-    'secret': SECRET_KEY,
-    'options': {'defaultType': 'future'}
+    'apiKey': os.environ.get('BINANCE_API_KEY', 'TU_API_KEY'),
+    'secret': os.environ.get('BINANCE_SECRET', 'TU_SECRET'),
+    'enableRateLimit': True,
+    'options': {
+        'defaultType': 'future',
+    }
 })
-exchange.adjustForTimeDifference = True
-exchange.load_time_difference()
 
 last_entry_price = None
 last_position_size = 0
 
 def run_trailing_manager():
-    time.sleep(10)
+    time.sleep(10) # Pausa inicial de seguridad
     global last_entry_price, last_position_size
     
     print(f"=== GESTOR DE TRAILING STOP INICIADO PARA {SYMBOL} ===")
@@ -63,15 +82,13 @@ def run_trailing_manager():
                 except Exception:
                     pass
 
-                # 3. Calcular Precio de Activation (Trigger) según la dirección
+                # 3. Calcular Precio de Activación (Trigger) según la dirección
                 if side == 'short':
-                    # Para SHORT: El precio baja a favor. El trigger va por debajo del precio promedio
                     trigger_price = entry_price * (1 - (ACTIVATION_DIST_PCT / 100))
-                    order_side = 'buy' # Para cerrar un Short se ejecuta una orden de compra
-                else: # 'long'
-                    # Para LONG: El precio sube a favor. El trigger va por encima del precio promedio
+                    order_side = 'buy'
+                else: 
                     trigger_price = entry_price * (1 + (ACTIVATION_DIST_PCT / 100))
-                    order_side = 'sell' # Para cerrar un Long se ejecuta una orden de venta
+                    order_side = 'sell'
 
                 # Guardamos los nuevos valores para no repetir el aviso
                 last_entry_price = entry_price
@@ -97,6 +114,13 @@ def run_trailing_manager():
                     print(f"[X] Error al colocar la orden Trailing: {e}")
 
             time.sleep(10)
+
+        except Exception as e:
+            print(f"[!] Error en el ciclo: {e}")
+            time.sleep(10)
+
+if __name__ == "__main__":
+    run_trailing_manager()
 
         except Exception as e:
             print(f"[!] Error en el ciclo: {e}")
