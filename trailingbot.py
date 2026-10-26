@@ -24,6 +24,7 @@ last_entry_price = None
 last_position_size = 0
 
 def run_trailing_manager():
+    time.sleep(10)
     global last_entry_price, last_position_size
     
     print(f"=== GESTOR DE TRAILING STOP INICIADO PARA {SYMBOL} ===")
@@ -39,10 +40,10 @@ def run_trailing_manager():
             # Si no hay posición activa (tamaño 0)
             if not pos or float(pos['contracts']) == 0:
                 if last_position_size != 0:
-                    print("\n[✔] Operación cerrada detectada. Esperando nueva entrada...")
+                    print(f"\n[✔] Operación cerrada detectada. Esperando nueva entrada...")
                     last_entry_price = None
                     last_position_size = 0
-                time.sleep(4)
+                time.sleep(10)
                 continue
 
             current_size = float(pos['contracts'])
@@ -51,7 +52,7 @@ def run_trailing_manager():
 
             # 2. Detectar si hubo cambios (entrada inicial o ejecución de una recompra)
             if entry_price != last_entry_price or current_size != last_position_size:
-                print(f"\n--------------------------------------------------")
+                print(f"\n" + "-"*50)
                 print(f"[!] CAMBIO DETECTADO EN LA POSICIÓN ({side.upper()})")
                 print(f" - Nuevo Precio Promedio: {entry_price}")
                 print(f" - Tamaño Total de Contratos: {current_size}")
@@ -62,70 +63,41 @@ def run_trailing_manager():
                 except Exception:
                     pass
 
-                # 3. Calcular Precio de Activación (Trigger) según la dirección
+                # 3. Calcular Precio de Activation (Trigger) según la dirección
                 if side == 'short':
-                    # Para SHORT: El precio baja a favor. El trigger va por debajo del precio promedio.
+                    # Para SHORT: El precio baja a favor. El trigger va por debajo del precio promedio
                     trigger_price = entry_price * (1 - (ACTIVATION_DIST_PCT / 100))
                     order_side = 'buy' # Para cerrar un Short se ejecuta una orden de compra
                 else: # 'long'
-                    # Para LONG: El precio sube a favor. El trigger va por encima del precio promedio.
+                    # Para LONG: El precio sube a favor. El trigger va por encima del precio promedio
                     trigger_price = entry_price * (1 + (ACTIVATION_DIST_PCT / 100))
                     order_side = 'sell' # Para cerrar un Long se ejecuta una orden de venta
 
-                print(f" - Calculando nuevo Trailing Stop:")
-                print(f" * Precio de Activación: {trigger_price:.4f}")
-                print(f" * Tasa de Callback: {CALLBACK_RATE_PCT}%")
-
-                # 4. Enviar la orden TRAILING_STOP_MARKET a Binance
-                params = {
-                    'activationPrice': round(trigger_price, 4),
-                    'callbackRate': CALLBACK_RATE_PCT,
-                    'reduceOnly': True
-                }
-                
-                exchange.create_order(
-                    symbol=SYMBOL,
-                    type='TRAILING_STOP_MARKET',
-                    side=order_side,
-                    amount=current_size,
-                    params=params
-                )
-                
-                print(f" [✔] ¡Trailing Stop actualizado con éxito en Binance!")
-                print(f"--------------------------------------------------")
-
-                # Actualizar la memoria interna del script
+                # Guardamos los nuevos valores para no repetir el aviso
                 last_entry_price = entry_price
                 last_position_size = current_size
 
-        except ccxt.NetworkError as e:
-            print(f"[X] Error de red (reintentando...): {e}")
-        except ccxt.ExchangeError as e:
-            print(f"[X] Error del exchange: {e}")
+                print(f" -> Activando Trailing | Precio de Activación (Trigger): {trigger_price}")
+
+                # Colocar la orden Trailing Stop Market en Binance Futures
+                try:
+                    params = {
+                        'activationPrice': float(trigger_price),
+                        'callbackRate': float(CALLBACK_RATE_PCT),
+                    }
+                    order = exchange.create_order(
+                        symbol=SYMBOL,
+                        type='TRAILING_STOP_MARKET',
+                        side=order_side,
+                        amount=current_size,
+                        params=params
+                    )
+                    print(f"[✔] Orden Trailing Stop colocada exitosamente en Binance.")
+                except Exception as e:
+                    print(f"[X] Error al colocar la orden Trailing: {e}")
+
+            time.sleep(10)
+
         except Exception as e:
-            print(f"[X] Error inesperado: {e}")
-
-        time.sleep(3) # Pausa de 3 segundos entre cada revisión de la posición
-
-import os
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
-
-class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot is running successfully!")
-
-def run_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
-    server.serve_forever()
-
-if __name__ == "__main__":
-    # Arrancamos un mini servidor web en segundo plano para que Render no cierre la app
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
-    
-    # Ejecutamos tu gestor de trailing stop original
-    run_trailing_manager()
+            print(f"[!] Error en el ciclo: {e}")
+            time.sleep(10)
