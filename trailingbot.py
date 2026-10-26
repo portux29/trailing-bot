@@ -107,5 +107,25 @@ def run_trailing_manager():
 
         time.sleep(3) # Pausa de 3 segundos entre cada revisión de la posición
 
-if __name__ == '__main__':
+import os
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running successfully!")
+
+def run_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    server.serve_forever()
+
+if __name__ == "__main__":
+    # Arrancamos un mini servidor web en segundo plano para que Render no cierre la app
+    server_thread = threading.Thread(target=run_server, daemon=True)
+    server_thread.start()
+    
+    # Ejecutamos tu gestor de trailing stop original
     run_trailing_manager()
