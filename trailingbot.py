@@ -31,7 +31,7 @@ exchange = ccxt.binance({
 })
 
 last_entry_price = None
-last_position_size = 0
+last_position_size = None
 
 def run_trailing_manager():
     time.sleep(10)
@@ -44,7 +44,7 @@ def run_trailing_manager():
             pos = positions[0] if positions else None
             
             if not pos or float(pos['contracts']) == 0:
-                if last_position_size != 0:
+                if last_position_size is not None and last_position_size != 0:
                     print("[✔] Operación cerrada. Esperando nueva entrada...")
                     last_entry_price = None
                     last_position_size = 0
@@ -93,7 +93,3 @@ def run_trailing_manager():
 
 if __name__ == "__main__":
     run_trailing_manager()
-
-        except Exception as e:
-            print(f"[!] Error en el ciclo: {e}")
-            time.sleep(10)
