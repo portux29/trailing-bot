@@ -20,7 +20,7 @@ def run_web_server():
 threading.Thread(target=run_web_server, daemon=True).start()
 
 SYMBOL = 'XRP/USDT:USDT'
-ACTIVATION_DIST_PCT = 1.80
+ACTIVATION_DIST_PCT = 1.70
 CALLBACK_RATE_PCT = 0.50
 
 exchange = ccxt.binance({
