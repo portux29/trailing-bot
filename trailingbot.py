@@ -34,16 +34,25 @@ last_entry_price = None
 last_position_size = None
 
 def run_trailing_manager():
-    time.sleep(10)
+    print("=== INICIALIZANDO CONEXIÓN CON BINANCE ===")
+    try:
+        exchange.load_markets()
+        print("[✔] Mercados cargados correctamente.")
+    except Exception as e:
+        print(f"[X] Error al cargar mercados: {e}")
+        return
+
+    time.sleep(5)
     global last_entry_price, last_position_size
     print("=== GESTOR DE TRAILING STOP INICIADO ===")
-    
+   
     while True:
         try:
-            positions = exchange.fetch_positions([SYMBOL])
-            pos = positions[0] if positions else None
-            
-            if not pos or float(pos['contracts']) == 0:
+            # Obtenemos todas las posiciones y filtramos por nuestro símbolo
+            positions = exchange.fetch_positions()
+            pos = next((p for p in positions if p['symbol'] == SYMBOL and float(p['contracts']) > 0), None)
+           
+            if not pos:
                 if last_position_size is not None and last_position_size != 0:
                     print("[✔] Operación cerrada. Esperando nueva entrada...")
                     last_entry_price = None
@@ -56,8 +65,8 @@ def run_trailing_manager():
             side = pos['side'].lower()
 
             if entry_price != last_entry_price or current_size != last_position_size:
-                print(f"[!] Cambio detectado en posición ({side.upper()}) | Precio: {entry_price} | Contratos: {current_size}")
-                
+                print(f"[!] Posición detectada ({side.upper()}) | Entrada: {entry_price} | Contratos: {current_size}")
+               
                 try:
                     exchange.cancel_all_orders(SYMBOL)
                 except Exception:
@@ -79,16 +88,19 @@ def run_trailing_manager():
                         type='TRAILING_STOP_MARKET',
                         side=order_side,
                         amount=current_size,
-                        params={'activationPrice': float(trigger_price), 'callbackRate': float(CALLBACK_RATE_PCT)}
+                        params={
+                            'activationPrice': float(trigger_price),
+                            'callbackRate': float(CALLBACK_RATE_PCT)
+                        }
                     )
-                    print("[✔] Orden Trailing Stop colocada con éxito.")
+                    print(f"[✔] Orden Trailing Stop colocada. Activación en: {trigger_price:.4f}")
                 except Exception as e:
-                    print(f"[X] Error al colocar orden: {e}")
+                    print(f"[X] Error al colocar orden en Binance: {e}")
 
             time.sleep(10)
 
         except Exception as e:
-            print(f"[!] Error en el ciclo: {e}")
+            print(f"[!] Error en el ciclo principal: {e}")
             time.sleep(10)
 
 if __name__ == "__main__":
