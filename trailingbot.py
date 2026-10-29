@@ -48,7 +48,6 @@ def run_trailing_manager():
    
     while True:
         try:
-            # Obtenemos todas las posiciones y filtramos por nuestro símbolo
             positions = exchange.fetch_positions()
             pos = next((p for p in positions if p['symbol'] == SYMBOL and float(p['contracts']) > 0), None)
            
